@@ -10,7 +10,7 @@ https://qiita.com/keys/items/bf492ef543fde3d8d822
 
 ## curl
 
-pached openssl + nghttp3 + ngtcp2
+pached openssl + nghttp3 + ngtcp2 (about 12.4MiB)
 
 ### How to build
 
@@ -30,7 +30,7 @@ IMPORTANT: `--alt-svc` is not working. alt-svc cache was made in ephemeral conta
 
 ## nginx
 
-nginx + quiche
+nginx + quiche (about 13.5MiB)
 
 ### How to build
 
