@@ -117,24 +117,38 @@ RUN set -eux; \
     ; \
     find ./lib -type f -executable | xargs strip; \
     strip ./bin/curl; \
-#    \
-#    ## no effect!
-#    rm /lib/libcrypto.so.1.1; \
-#    ln -sf /usr/local/lib/libcrypto.so.1.1 /lib; \
-#    ln -sf /usr/local/lib/libcrypto.so.1.1 /usr/lib; \
-#    rm /lib/libssl.so.1.1; \
-#    ln -sf /usr/local/lib/libssl.so.1.1 /lib; \
-#    ln -sf /usr/local/lib/libssl.so.1.1 /usr/lib; \
     \
-    apk del --no-network binutils
+    rm /lib/libcrypto.so.1.1; \
+    ln -sf /usr/local/lib/libcrypto.so.1.1 /lib; \
+    ln -sf /usr/local/lib/libcrypto.so.1.1 /usr/lib; \
+    rm /lib/libssl.so.1.1; \
+    ln -sf /usr/local/lib/libssl.so.1.1 /lib; \
+    ln -sf /usr/local/lib/libssl.so.1.1 /usr/lib; \
+    rm -rf /usr/lib/engines-1.1; \
+    ln -sf /usr/local/lib/engines-1.1 /usr/lib; \
+    \
+    apk add --virtual .nginx-rundeps nghttp2-libs; \
+    \
+    apk del --no-network binutils; \
+    apk del musl-utils libc-utils; \
+    \
+    rm -rf /usr/share /usr/local/share; \
+    echo "done."
 
 
-FROM alpine:3
+FROM scratch
 
-COPY --from=reduce /usr/local/ /usr/local/
+COPY --from=reduce /bin/ /bin/
+COPY --from=reduce /sbin/ /sbin/
+COPY --from=reduce /lib/ /lib/
+COPY --from=reduce /etc/ /etc/
+COPY --from=reduce /usr /usr/
+
+RUN ls -la /
 
 RUN set -eux; \
-    apk add --virtual .nginx-rundeps nghttp2-libs
+    mkdir root srv tmp var; \
+    chmod 700 root
 
 WORKDIR /usr/local/bin
 CMD ["/bin/sh"]
