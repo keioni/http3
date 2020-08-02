@@ -1,12 +1,20 @@
 FROM alpine:3 AS download
 
+ARG CURL_VERSION=curl-7.71.1
+
 RUN set -eux; \
-    apk update && apk add --no-cache git; \
+    apk update && apk add --no-cache --virtual .build-deps \
+        git \
+        curl \
+    ; \
     git clone --depth 1 -b OpenSSL_1_1_1g-quic-draft-29 https://github.com/tatsuhiro-t/openssl; \
     git clone --depth 1 https://github.com/ngtcp2/nghttp3; \
     git clone --depth 1 https://github.com/ngtcp2/ngtcp2; \
-    git clone --depth 1 https://github.com/curl/curl; \
-    apk del --no-network git
+    curl_path=`echo -n $CURL_VERSION | sed -E 's/\./_/g'`; \
+    curl -L -O https://github.com/curl/curl/releases/download/$curl_path/$CURL_VERSION.tar.gz; \
+    tar zxvf $CURL_VERSION.tar.gz; \
+    mv $CURL_VERSION curl; \
+    apk del --no-network .build-deps
 
 
 FROM alpine:3 AS build-openssl
@@ -135,26 +143,26 @@ RUN set -eux; \
         CPPFLAGS=-Os \
         LDFLAGS="-Wl,-rpath,/usr/local/lib" \
         PKG_CONFIG_PATH="/usr/local/lib/pkgconfig" \
-		--enable-alt-svc \
-		--disable-ftp \
-		--disable-file \
-		--disable-dict \
-		--disable-ldap \
-		--disable-ldaps \
-		--disable-rtsp \
-		--disable-telnet \
-		--disable-tftp \
-		--disable-pop3 \
-		--disable-imap \
-		--disable-smb \
-		--disable-smtp \
-		--disable-gopher \
-		--disable-mqtt \
-		--disable-manual \
-		--disable-tls-srp \
-		--disable-unix-sockets \
-		--disable-http-auth \
-		--disable-crypto-auth \
+        --enable-alt-svc \
+        --disable-ftp \
+        --disable-file \
+        --disable-dict \
+        --disable-ldap \
+        --disable-ldaps \
+        --disable-rtsp \
+        --disable-telnet \
+        --disable-tftp \
+        --disable-pop3 \
+        --disable-imap \
+        --disable-smb \
+        --disable-smtp \
+        --disable-gopher \
+        --disable-mqtt \
+        --disable-manual \
+        --disable-tls-srp \
+        --disable-unix-sockets \
+        --disable-http-auth \
+        --disable-crypto-auth \
     ; \
     make; \
     make install; \
