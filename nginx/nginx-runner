@@ -1,8 +1,10 @@
 #!/bin/sh
 
-if [ -f /usr/local/nginx/logs/nginx.pid ]; then
-    /usr/local/nginx/sbin/nginx -s quit
-    rm -f /usr/local/nginx/logs/nginx.pid
+NGINX_PATH="/usr/local/nginx"
+
+if [ -f $NGINX_PATH/logs/nginx.pid ]; then
+    $NGINX_PATH/sbin/nginx -s quit
+    rm -f $NGINX_PATH/logs/nginx.pid
 fi
 
-/usr/local/nginx/sbin/nginx -c /usr/local/nginx/conf/nginx-foreground.conf
+$NGINX_PATH/sbin/nginx -g "daemon off;"
