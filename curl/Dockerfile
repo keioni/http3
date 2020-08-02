@@ -1,35 +1,23 @@
-FROM alpine:3 AS download
 
-ARG CURL_VERSION=curl-7.71.1
-
-RUN set -eux; \
-    apk update && apk add --no-cache --virtual .build-deps \
-        git \
-        curl \
-    ; \
-    git clone --depth 1 -b OpenSSL_1_1_1g-quic-draft-29 https://github.com/tatsuhiro-t/openssl; \
-    git clone --depth 1 https://github.com/ngtcp2/nghttp3; \
-    git clone --depth 1 https://github.com/ngtcp2/ngtcp2; \
-    curl_path=`echo -n $CURL_VERSION | sed -E 's/\./_/g'`; \
-    curl -L -O https://github.com/curl/curl/releases/download/$curl_path/$CURL_VERSION.tar.gz; \
-    tar zxvf $CURL_VERSION.tar.gz; \
-    mv $CURL_VERSION curl; \
-    apk del --no-network .build-deps
-
-
+#######################################################################
+## build patched-openssl
+#######################################################################
 FROM alpine:3 AS build-openssl
 
-COPY --from=download /openssl /openssl/
+ARG PATCHED_BRANCH=OpenSSL_1_1_1g-quic-draft-29
 
 RUN set -eux; \
     apk update && apk add --no-cache --virtual .build-deps \
         perl \
         make \
         gcc \
+        git \
         musl-dev \
         linux-headers \
-    ; \
-    \
+    ;\
+    git clone --depth 1 -b $PATCHED_BRANCH https://github.com/tatsuhiro-t/openssl
+
+RUN set -eux; \
     cd openssl; \
     ./Configure \
         no-aria \
@@ -73,15 +61,16 @@ RUN set -eux; \
     ; \
     make; \
     make install_sw; \
-    \
     cd ..; \
     rm -rf openssl; \
     apk del --no-network .build-deps
 
 
-FROM alpine:3 AS build-nghttp3
 
-COPY --from=download /nghttp3 /nghttp3/
+#######################################################################
+## build nghttp3
+#######################################################################
+FROM alpine:3 AS build-nghttp3
 
 RUN set -eux; \
     apk update && apk add --no-cache --virtual .build-deps \
@@ -89,36 +78,49 @@ RUN set -eux; \
         automake \
         libtool \
         gcc \
+        git \
         g++ \
         make \
         libc-dev \
         pkgconf \
     ; \
-    \
+    git clone --depth 1 https://github.com/ngtcp2/nghttp3
+
+RUN set -eux; \
     cd nghttp3; \
     autoreconf -i -v; \
     ./configure --enable-lib-only CFLAGS=-Os CXXFLAGS=-Os; \
     make; \
     make install; \
-    \
     cd ..; \
     rm -rf nghttp3; \
     apk del --no-network .build-deps
 
 
-FROM alpine:3 AS build
 
-COPY --from=download /ngtcp2 /ngtcp2/
-COPY --from=download /curl /curl/
-COPY --from=build-openssl /usr/local/ /usr/local/
-COPY --from=build-nghttp3 /usr/local/ /usr/local/
+#######################################################################
+## build ngtcp2 and curl
+#######################################################################
+FROM alpine:3 AS build-curl
+
+ARG CURL_VERSION=curl-7.71.1
+
+RUN set -eux; \
+    apk add --no-cache curl; \
+    curl_path=`echo -n $CURL_VERSION | sed -E 's/\./_/g'`; \
+    curl -L -O https://github.com/curl/curl/releases/download/$curl_path/$CURL_VERSION.tar.gz; \
+    tar zxvf $CURL_VERSION.tar.gz; \
+    mv $CURL_VERSION curl; \
+    apk del --no-network curl;
 
 RUN set -eux; \
     apk update && apk add --no-cache --virtual .build-deps \
         autoconf \
         automake \
+        curl \
         libtool \
         gcc \
+        git \
         g++ \
         make \
         libc-dev \
@@ -128,14 +130,19 @@ RUN set -eux; \
         libev-dev \
         zlib-dev \
     ; \
-    \
+    git clone --depth 1 https://github.com/ngtcp2/ngtcp2
+
+COPY --from=build-openssl /usr/local /usr/local/
+COPY --from=build-nghttp3 /usr/local /usr/local/
+RUN set -eux; \
     cd ngtcp2; \
     autoreconf -i -v; \
     ./configure CFLAGS=-Os CXXFLAGS=-Os; \
     make; \
     make install; \
-    cd ..; \
-    \
+    cd ..
+
+RUN set -eux; \
     cd curl; \
     ./buildconf; \
     ./configure \
@@ -167,28 +174,31 @@ RUN set -eux; \
     make; \
     make install; \
     cd ..; \
-    \
     rm -rf ngtcp2 curl; \
     apk del --no-network .build-deps
 
 
+
+#######################################################################
+## reduce container image size
+#######################################################################
 FROM alpine:3 AS reduce
 
-COPY --from=build /usr/local/bin /usr/local/bin/
-COPY --from=build /usr/local/lib /usr/local/lib/
+COPY --from=build-curl /usr/local/bin /usr/local/bin/
+COPY --from=build-curl /usr/local/lib /usr/local/lib/
 
 RUN set -eux; \
-    apk add --no-cache binutils; \
     \
-    cd /usr/local; \
-    rm -rf \
-        ./bin/openssl \
-        ./lib/*.a \
-        ./lib/*.la \
-        ./lib/pkgconfig \
-    ; \
-    find ./lib -type f -executable | xargs strip; \
-    strip ./bin/curl; \
+    rm -f /usr/local/bin/openssl; \
+    rm -f /usr/local/bin/c_rehash; \
+    rm -f /usr/local/bin/curl-config; \
+    rm -f /usr/local/lib/*.a; \
+    rm -f /usr/local/lib/*.la; \
+    rm -rf /usr/local/lib/pkgconfig; \
+    \
+    apk add --no-cache binutils; \
+    find /usr/local -type f -executable | xargs strip; \
+    apk del --no-network binutils; \
     \
     rm /lib/libcrypto.so.1.1; \
     ln -sf /usr/local/lib/libcrypto.so.1.1 /lib; \
@@ -199,24 +209,23 @@ RUN set -eux; \
     rm -rf /usr/lib/engines-1.1; \
     ln -sf /usr/local/lib/engines-1.1 /usr/lib; \
     \
-    apk add --virtual .nginx-rundeps nghttp2-libs; \
-    \
-    apk del --no-network binutils; \
+    apk add nghttp2-libs; \
     apk del musl-utils libc-utils; \
     \
-    rm -rf /usr/share /usr/local/share; \
-    echo "done."
+    rm -rf /usr/share /usr/local/share
 
 
-FROM scratch
 
-COPY --from=reduce /bin/ /bin/
-COPY --from=reduce /sbin/ /sbin/
-COPY --from=reduce /lib/ /lib/
-COPY --from=reduce /etc/ /etc/
+#######################################################################
+## build the final image
+#######################################################################
+FROM scratch AS post-process
+
+COPY --from=reduce /bin /bin/
+COPY --from=reduce /sbin /sbin/
+COPY --from=reduce /lib /lib/
+COPY --from=reduce /etc /etc/
 COPY --from=reduce /usr /usr/
-
-RUN ls -la /
 
 RUN set -eux; \
     mkdir root srv tmp var; \
@@ -224,3 +233,4 @@ RUN set -eux; \
 
 WORKDIR /usr/local/bin
 CMD ["/bin/sh"]
+
