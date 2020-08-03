@@ -105,12 +105,11 @@ COPY --from=makecert /cert $NGINX_PATH/conf/cert
 
 RUN set -eux; apk update && apk add --virtual .nginx-rundeps pcre libgcc
 
-EXPOSE 80 443
+EXPOSE 80/tcp 443/tcp 443/udp
 
-ENV PATH="${NGINX_PATH}/sbin:${PATH}"
-ENV CONF_FILE="${NGINX_PATH}/conf/nginx.conf"
 ENV HTTP3_ONLY=no
 
 WORKDIR $NGINX_PATH
+ENV PATH=$NGINX_PATH/sbin:$PATH
 
 CMD ["nginx-runner"]
