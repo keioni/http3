@@ -81,21 +81,23 @@ RUN set -eux; \
 #######################################################################
 FROM alpine:3 AS post-process
 
+LABEL maintaner="Kei Onimaru <otegami@devel.keys.jp>"
+LABEL name="nginx-http3"
+LABEL docker.cmd="docker run -dit keioni/nginx-http3"
+
 ARG NGINX_PATH="/usr/local/nginx"
+ENV PATH "$NGINX_PATH/sbin:$PATH"
 
 COPY --from=build $NGINX_PATH $NGINX_PATH
 COPY --from=makecert $NGINX_PATH $NGINX_PATH
 
-COPY nginx.conf nginx_http3_only.conf $NGINX_PATH/conf/
-COPY nginx-runner /usr/local/sbin/
+COPY ./conf $NGINX_PATH/conf
+COPY ./nginx-runner $NGINX_PATH/sbin
 
-RUN set -eux; \
-    apk update && apk add --virtual .nginx-rundeps pcre libgcc
+RUN set -eux; apk update && apk add --virtual .nginx-rundeps pcre libgcc
 
-EXPOSE 443/udp
-EXPOSE 443/tcp
+EXPOSE 80 443
 
 WORKDIR $NGINX_PATH
 
 CMD ["nginx-runner"]
-
