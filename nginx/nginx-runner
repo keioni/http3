@@ -7,4 +7,12 @@ if [ -f $NGINX_PATH/logs/nginx.pid ]; then
     rm -f $NGINX_PATH/logs/nginx.pid
 fi
 
-$NGINX_PATH/sbin/nginx -g "daemon off;"
+if [ x"$HTTP3_ONLY" = x"yes" ]; then
+    CONF_FILE=$NGINX_PATH/conf/nginx_http3_only.conf
+fi
+
+if [ x"$IPv6" = x"no" ]; then
+    sed -i -E 's/^\s+listen\s+\[::\]:[0-9]+\s+.+$//' $CONF_FILE
+fi
+
+$NGINX_PATH/sbin/nginx -c $CONF_FILE -g "daemon off;"

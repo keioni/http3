@@ -4,6 +4,8 @@
 #######################################################################
 FROM alpine:3 as download
 
+LABEL maintaner="Kei Onimaru <otegami@devel.keys.jp>"
+
 RUN set -eux; \
     apk update && apk add --no-cache --virtual .build-deps \
         curl \
@@ -49,7 +51,15 @@ COPY --from=download /quiche /quiche
 
 RUN set -eux; \
     cd /nginx; \
-    ./configure --prefix=/usr/local/nginx --build=quiche-alpine --with-http_ssl_module --with-http_v2_module --with-http_v3_module --with-openssl=../quiche/deps/boringssl --with-quiche=../quiche; \
+    ./configure \
+        --prefix=/usr/local/nginx \
+        --build=quiche-alpine \
+        --with-http_ssl_module \
+        --with-http_v2_module \
+        --with-http_v3_module \
+        --with-openssl=../quiche/deps/boringssl \
+        --with-quiche=../quiche \
+    ; \
     make; \
     make install; \
     strip /usr/local/nginx/sbin/nginx; \
@@ -66,12 +76,13 @@ FROM alpine:3 as makecert
 
 RUN set -eux; \
     apk update && apk add --no-cache openssl; \
-    mkdir -p /usr/local/nginx/conf; \
-    cd /usr/local/nginx/conf; \
-    openssl genrsa 2048 > cert.key; \
-    openssl req -new -subj "/CN=localhost" -key cert.key > cert.csr; \
-    openssl x509 -days 3650 -req -signkey cert.key < cert.csr > cert.crt; \
-    rm cert.csr; \
+    mkdir -p /cert; \
+    cd /cert; \
+    openssl genrsa 2048 > localhost.key; \
+    chmod 600 localhost.key; \
+    openssl req -new -subj "/CN=localhost" -key localhost.key > csr; \
+    openssl x509 -days 3650 -req -signkey localhost.key < csr > localhost.crt; \
+    rm csr; \
     apk del --no-network openssl
 
 
@@ -86,17 +97,19 @@ LABEL name="nginx-http3"
 LABEL docker.cmd="docker run -dit keioni/nginx-http3"
 
 ARG NGINX_PATH="/usr/local/nginx"
-ENV PATH "$NGINX_PATH/sbin:$PATH"
 
-COPY --from=build $NGINX_PATH $NGINX_PATH
-COPY --from=makecert $NGINX_PATH $NGINX_PATH
-
+COPY --from=build /usr/local/nginx $NGINX_PATH
 COPY ./conf $NGINX_PATH/conf
 COPY ./nginx-runner $NGINX_PATH/sbin
+COPY --from=makecert /cert $NGINX_PATH/conf/cert
 
 RUN set -eux; apk update && apk add --virtual .nginx-rundeps pcre libgcc
 
 EXPOSE 80 443
+
+ENV PATH="${NGINX_PATH}/sbin:${PATH}"
+ENV CONF_FILE="${NGINX_PATH}/conf/nginx.conf"
+ENV HTTP3_ONLY=no
 
 WORKDIR $NGINX_PATH
 
