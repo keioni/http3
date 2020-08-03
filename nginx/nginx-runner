@@ -4,16 +4,16 @@ if [ -f logs/nginx.pid ]; then
     rm -f logs/nginx.pid
 fi
 
+if [ x"$CONF_FILE" = x"" ]; then
+    CONF_FILE="conf/nginx.conf"
+fi
+
 if [ x"$HTTP3_ONLY" = x"yes" ]; then
-    CONF_FILE=conf/nginx_http3_only.conf
+    CONF_FILE="conf/nginx_http3_only.conf"
 fi
 
 if [ x"$IPv6" = x"no" ]; then
     sed -i -E 's/^\s+listen\s+\[::\]:[0-9]+\s+.+$//' $CONF_FILE
 fi
 
-if [ x"$CONF_FILE" != x"" ]; then
-    CONF_FILE="-c $CONF_FILE"
-fi
-
-sbin/nginx $CONF_FILE -g "daemon off;"
+sbin/nginx -c $CONF_FILE -g "daemon off;"
