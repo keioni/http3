@@ -1,6 +1,6 @@
 # Nginx with HTTP/3 (draft)
 
-[Quiche](https://docs.quic.tech/quiche) is one of the implementations of [QUIC](https://tools.ietf.org/html/draft-ietf-quic-transport-29) created by [Cloudflare](https://www.cloudflare.com/).
+[Quiche](https://docs.quic.tech/quiche) is one of the implementations of [QUIC](https://datatracker.ietf.org/doc/draft-ietf-quic-transport/) created by [Cloudflare](https://www.cloudflare.com/).
 
 Cloudflare also provides an unofficial nginx patch that can use QUIC. This is a docker image built according to the [Cloudflare documentation](https://github.com/cloudflare/quiche/tree/master/extras/nginx).
 
