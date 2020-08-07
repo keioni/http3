@@ -1,8 +1,10 @@
-
+# syntax = docker/dockerfile:1.1-experimental
 #######################################################################
 ## build patched-openssl
 #######################################################################
 FROM alpine:3 AS build-openssl
+
+LABEL maintaner="Kei Onimaru <otegami@devel.keys.jp>"
 
 ARG PATCHED_BRANCH=OpenSSL_1_1_1g-quic-draft-29
 
@@ -13,12 +15,20 @@ RUN set -eux; \
         gcc \
         git \
         musl-dev \
+        pkgconf \
         linux-headers \
-    ;\
+    ; \
     git clone --depth 1 -b $PATCHED_BRANCH https://github.com/tatsuhiro-t/openssl
 
-RUN set -eux; \
-    cd openssl; \
+ARG TARGETOS
+ARG TARGETARCH
+
+RUN set -eux; cd openssl; \
+    if [ $TARGETARCH = "arm64" ]; then \
+        arch="aarch64"; \
+    else \
+        arch="x86_64"; \
+    fi; \
     ./Configure \
         no-aria \
         no-bf \
@@ -86,8 +96,7 @@ RUN set -eux; \
     ; \
     git clone --depth 1 https://github.com/ngtcp2/nghttp3
 
-RUN set -eux; \
-    cd nghttp3; \
+RUN set -eux;  cd nghttp3; \
     autoreconf -i -v; \
     ./configure --enable-lib-only CFLAGS=-Os CXXFLAGS=-Os; \
     make; \
@@ -103,18 +112,14 @@ RUN set -eux; \
 #######################################################################
 FROM alpine:3 AS build-curl
 
-ARG CURL_VERSION=curl-7.71.1
+# ARG CURL_VERSION=curl-7.71.1
+#
+# RUN set -eux; curl_path=`echo -n $CURL_VERSION | sed -E 's/\./_/g'`; \
+#     wget https://github.com/curl/curl/releases/download/$curl_path/$CURL_VERSION.tar.gz; \
+#     tar zxvf $CURL_VERSION.tar.gz; \
+#     mv $CURL_VERSION curl
 
-RUN set -eux; \
-    apk add --no-cache curl; \
-    curl_path=`echo -n $CURL_VERSION | sed -E 's/\./_/g'`; \
-    curl -L -O https://github.com/curl/curl/releases/download/$curl_path/$CURL_VERSION.tar.gz; \
-    tar zxvf $CURL_VERSION.tar.gz; \
-    mv $CURL_VERSION curl; \
-    apk del --no-network curl;
-
-RUN set -eux; \
-    apk update && apk add --no-cache --virtual .build-deps \
+RUN set -eux; apk update && apk add \
         autoconf \
         automake \
         curl \
@@ -130,20 +135,20 @@ RUN set -eux; \
         libev-dev \
         zlib-dev \
     ; \
+    git clone https://github.com/curl/curl.git; \
     git clone --depth 1 https://github.com/ngtcp2/ngtcp2
 
 COPY --from=build-openssl /usr/local /usr/local/
 COPY --from=build-nghttp3 /usr/local /usr/local/
-RUN set -eux; \
-    cd ngtcp2; \
+
+RUN set -eux; cd ngtcp2; \
     autoreconf -i -v; \
     ./configure CFLAGS=-Os CXXFLAGS=-Os; \
     make; \
     make install; \
     cd ..
 
-RUN set -eux; \
-    cd curl; \
+RUN set -eux; cd curl; \
     ./buildconf; \
     ./configure \
         CFLAGS=-Os \
@@ -233,4 +238,3 @@ RUN set -eux; \
 
 WORKDIR /usr/local/bin
 CMD ["/bin/sh"]
-
