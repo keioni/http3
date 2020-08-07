@@ -1,3 +1,4 @@
+# syntax = docker/dockerfile:experimental
 #######################################################################
 ## download nginx and quiche, and patch it.
 #######################################################################
@@ -39,6 +40,7 @@ RUN set -eux; \
         g++ \
         make \
         nghttp2-dev \
+        openssl \
         pcre-dev \
         rust \
         tar \
@@ -62,27 +64,16 @@ RUN set -eux; \
     make; \
     make install; \
     strip /usr/local/nginx/sbin/nginx; \
-    cd ..; \
+    ; \
+    cd /usr/local/nginx/conf; \
+    openssl genrsa 2048 > cert.key; \
+    chmod 600 cert.key; \
+    openssl req -new -subj "/CN=localhost" -key cert.key > cert.csr; \
+    openssl x509 -days 3650 -req -signkey cert.key < csr > cert.crt; \
+    rm cert.csr; \
+    \
     rm -rf /nginx /quiche; \
     apk del --no-network .build-deps
-
-
-
-#######################################################################
-## make private key and self-signed certificate for localhost
-#######################################################################
-FROM alpine:3 as makecert
-
-RUN set -eux; \
-    apk update && apk add --no-cache openssl; \
-    mkdir -p /cert; \
-    cd /cert; \
-    openssl genrsa 2048 > localhost.key; \
-    chmod 600 localhost.key; \
-    openssl req -new -subj "/CN=localhost" -key localhost.key > csr; \
-    openssl x509 -days 3650 -req -signkey localhost.key < csr > localhost.crt; \
-    rm csr; \
-    apk del --no-network openssl
 
 
 
@@ -100,12 +91,12 @@ ARG NGINX_PATH="/usr/local/nginx"
 COPY --from=build /usr/local/nginx $NGINX_PATH
 COPY ./conf $NGINX_PATH/conf
 COPY ./nginx-runner $NGINX_PATH/sbin
-COPY --from=makecert /cert $NGINX_PATH/conf/cert
 
 RUN set -eux; apk update && apk add --virtual .nginx-rundeps pcre libgcc
 
 EXPOSE 80/tcp 443/tcp 443/udp
 
+ENV IPv6=yes
 ENV HTTP3_ONLY=no
 
 ENV PATH=$NGINX_PATH/sbin:$PATH
