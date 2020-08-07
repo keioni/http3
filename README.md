@@ -1,8 +1,8 @@
 # Curl and Nginx with HTTP/3 support
 
-## [curl](https://github.com/keioni/http3/tree/master/curl)
+[curl](https://github.com/keioni/http3/tree/master/curl)
 
-## [nginx](https://github.com/keioni/http3/tree/master/nginx)
+[nginx](https://github.com/keioni/http3/tree/master/nginx)
 
 # How to build
 
