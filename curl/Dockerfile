@@ -195,6 +195,9 @@ COPY --from=build-curl /usr/local/lib /usr/local/lib/
 COPY reduce.sh /
 RUN /reduce.sh
 
+RUN set -eux; apk add nghttp2-libs; \
+    apk del musl-utils libc-utils
+
 
 
 #######################################################################
