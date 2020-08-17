@@ -24,7 +24,7 @@ docker pull keioni/curl-http3
 # Usage
 
 ```
-docker run --dit keioni/curl-http3
+docker run -dit keioni/curl-http3
 ```
 
 ## Example
