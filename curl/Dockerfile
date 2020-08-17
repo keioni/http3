@@ -119,7 +119,7 @@ FROM alpine:3 AS build-curl
 #     tar zxvf $CURL_VERSION.tar.gz; \
 #     mv $CURL_VERSION curl
 
-RUN set -eux; apk update && apk add \
+RUN set -eux; apk update && apk add --virtual .build-deps \
         autoconf \
         automake \
         curl \
@@ -192,32 +192,11 @@ FROM alpine:3 AS reduce
 COPY --from=build-curl /usr/local/bin /usr/local/bin/
 COPY --from=build-curl /usr/local/lib /usr/local/lib/
 
-RUN set -eux; \
-    \
-    rm -f /usr/local/bin/openssl; \
-    rm -f /usr/local/bin/c_rehash; \
-    rm -f /usr/local/bin/curl-config; \
-    rm -f /usr/local/lib/*.a; \
-    rm -f /usr/local/lib/*.la; \
-    rm -rf /usr/local/lib/pkgconfig; \
-    \
-    apk add --no-cache binutils; \
-    find /usr/local -type f -executable | xargs strip; \
-    apk del --no-network binutils; \
-    \
-    rm /lib/libcrypto.so.1.1; \
-    ln -sf /usr/local/lib/libcrypto.so.1.1 /lib; \
-    ln -sf /usr/local/lib/libcrypto.so.1.1 /usr/lib; \
-    rm /lib/libssl.so.1.1; \
-    ln -sf /usr/local/lib/libssl.so.1.1 /lib; \
-    ln -sf /usr/local/lib/libssl.so.1.1 /usr/lib; \
-    rm -rf /usr/lib/engines-1.1; \
-    ln -sf /usr/local/lib/engines-1.1 /usr/lib; \
-    \
-    apk add nghttp2-libs; \
-    apk del musl-utils libc-utils; \
-    \
-    rm -rf /usr/share /usr/local/share
+RUN set -eux; apk add nghttp2-libs; \
+    apk del musl-utils libc-utils
+
+COPY reduce.sh /
+RUN /reduce.sh
 
 
 
@@ -232,9 +211,7 @@ COPY --from=reduce /lib /lib/
 COPY --from=reduce /etc /etc/
 COPY --from=reduce /usr /usr/
 
-RUN set -eux; \
-    mkdir root srv tmp var; \
-    chmod 700 root
+RUN set -eux; mkdir /root /tmp /var
 
 WORKDIR /usr/local/bin
 CMD ["/bin/sh"]
