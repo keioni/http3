@@ -192,11 +192,11 @@ FROM alpine:3 AS reduce
 COPY --from=build-curl /usr/local/bin /usr/local/bin/
 COPY --from=build-curl /usr/local/lib /usr/local/lib/
 
-COPY reduce.sh /
-RUN /reduce.sh
-
 RUN set -eux; apk add nghttp2-libs; \
     apk del musl-utils libc-utils
+
+COPY reduce.sh /
+RUN /reduce.sh
 
 
 
@@ -211,9 +211,7 @@ COPY --from=reduce /lib /lib/
 COPY --from=reduce /etc /etc/
 COPY --from=reduce /usr /usr/
 
-RUN set -eux; \
-    mkdir root srv tmp var; \
-    chmod 700 root
+RUN set -eux; mkdir /root /tmp /var
 
 WORKDIR /usr/local/bin
 CMD ["/bin/sh"]

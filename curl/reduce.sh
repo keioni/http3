@@ -24,4 +24,5 @@ ln -sf $LIB_DIR/libssl.so.1.1 /usr/lib
 rm -rf /usr/lib/engines-1.1
 ln -sf $LIB_DIR/engines-1.1 /usr/lib
 
+rm -rf /sbin/mkmntdirs /sbin/apk /etc/apk /lib/apk /usr/bin/ssl_client
 rm -rf /usr/share $LOCAL_DIR/share
