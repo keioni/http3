@@ -195,8 +195,40 @@ COPY --from=build-curl /usr/local/lib /usr/local/lib/
 RUN set -eux; apk add nghttp2-libs; \
     apk del musl-utils libc-utils
 
-COPY reduce.sh /
-RUN /reduce.sh
+RUN set -eux; remove_files () { \
+        rm -rf \
+            /usr/local/bin/openssl \
+            /usr/local/bin/c_rehash \
+            /usr/local/bin/curl-config \
+            /usr/local/lib/*.a \
+            /usr/local/lib/*.la \
+            /usr/local/lib/pkgconfig; \
+        \
+        apk add --no-cache binutils; \
+        find /usr/local -type f -executable | xargs strip; \
+        apk del --no-network binutils; \
+        \
+        rm /lib/libcrypto.so.1.1; \
+        ln -sf /usr/local/lib/libcrypto.so.1.1 /lib; \
+        ln -sf /usr/local/lib/libcrypto.so.1.1 /usr/lib; \
+        \
+        rm /lib/libssl.so.1.1; \
+        ln -sf /usr/local/lib/libssl.so.1.1 /lib; \
+        ln -sf /usr/local/lib/libssl.so.1.1 /usr/lib; \
+        \
+        rm -rf /usr/lib/engines-1.1; \
+        ln -sf /usr/local/lib/engines-1.1 /usr/lib; \
+        \
+        rm -rf \
+            /sbin/mkmntdirs \
+            /sbin/apk \
+            /etc/apk \
+            /lib/apk \
+            /usr/bin/ssl_client \
+            /usr/share \
+            /usr/local/share; \
+    }; \
+    remove_files
 
 
 
