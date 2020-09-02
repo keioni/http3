@@ -192,8 +192,8 @@ RUN set -eux; remove_files () { \
             /usr/local/bin/curl-config \
             /usr/local/lib/*.a \
             /usr/local/lib/*.la \
-            /usr/local/lib/pkgconfig; \
-        \
+            /usr/local/lib/pkgconfig \
+        ; \
         apk add --no-cache binutils; \
         find /usr/local -type f -executable | xargs strip; \
         apk del --no-network binutils; \
@@ -216,7 +216,8 @@ RUN set -eux; remove_files () { \
             /lib/apk \
             /usr/bin/ssl_client \
             /usr/share \
-            /usr/local/share; \
+            /usr/local/share \
+        ; \
     }; \
     apk add nghttp2-libs; \
     apk del musl-utils libc-utils; \
