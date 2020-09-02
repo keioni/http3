@@ -4,7 +4,7 @@
 #######################################################################
 FROM alpine:3 AS build-openssl
 
-LABEL maintaner="Kei Onimaru <otegami@devel.keys.jp>"
+LABEL maintainer="Kei Onimaru <otegami@devel.keys.jp>"
 
 ARG PATCHED_BRANCH=OpenSSL_1_1_1g-quic-draft-29
 
@@ -18,17 +18,9 @@ RUN set -eux; \
         pkgconf \
         linux-headers \
     ; \
-    git clone --depth 1 -b $PATCHED_BRANCH https://github.com/tatsuhiro-t/openssl
-
-ARG TARGETOS
-ARG TARGETARCH
-
-RUN set -eux; cd openssl; \
-    if [ $TARGETARCH = "arm64" ]; then \
-        arch="aarch64"; \
-    else \
-        arch="x86_64"; \
-    fi; \
+    git clone --depth 1 -b $PATCHED_BRANCH https://github.com/tatsuhiro-t/openssl; \
+    \
+    cd openssl; \
     ./Configure \
         no-aria \
         no-bf \
@@ -94,13 +86,14 @@ RUN set -eux; \
         libc-dev \
         pkgconf \
     ; \
-    git clone --depth 1 https://github.com/ngtcp2/nghttp3
-
-RUN set -eux;  cd nghttp3; \
+    git clone --depth 1 https://github.com/ngtcp2/nghttp3; \
+    \
+    cd nghttp3; \
     autoreconf -i -v; \
     ./configure --enable-lib-only CFLAGS=-Os CXXFLAGS=-Os; \
     make; \
     make install; \
+    \
     cd ..; \
     rm -rf nghttp3; \
     apk del --no-network .build-deps
@@ -146,9 +139,9 @@ RUN set -eux; cd ngtcp2; \
     ./configure CFLAGS=-Os CXXFLAGS=-Os; \
     make; \
     make install; \
-    cd ..
-
-RUN set -eux; cd curl; \
+    cd ..; \
+    \
+    cd curl; \
     ./buildconf; \
     ./configure \
         CFLAGS=-Os \
@@ -192,11 +185,42 @@ FROM alpine:3 AS reduce
 COPY --from=build-curl /usr/local/bin /usr/local/bin/
 COPY --from=build-curl /usr/local/lib /usr/local/lib/
 
-RUN set -eux; apk add nghttp2-libs; \
-    apk del musl-utils libc-utils
-
-COPY reduce.sh /
-RUN /reduce.sh
+RUN set -eux; remove_files () { \
+        rm -rf \
+            /usr/local/bin/openssl \
+            /usr/local/bin/c_rehash \
+            /usr/local/bin/curl-config \
+            /usr/local/lib/*.a \
+            /usr/local/lib/*.la \
+            /usr/local/lib/pkgconfig; \
+        \
+        apk add --no-cache binutils; \
+        find /usr/local -type f -executable | xargs strip; \
+        apk del --no-network binutils; \
+        \
+        rm /lib/libcrypto.so.1.1; \
+        ln -sf /usr/local/lib/libcrypto.so.1.1 /lib; \
+        ln -sf /usr/local/lib/libcrypto.so.1.1 /usr/lib; \
+        \
+        rm /lib/libssl.so.1.1; \
+        ln -sf /usr/local/lib/libssl.so.1.1 /lib; \
+        ln -sf /usr/local/lib/libssl.so.1.1 /usr/lib; \
+        \
+        rm -rf /usr/lib/engines-1.1; \
+        ln -sf /usr/local/lib/engines-1.1 /usr/lib; \
+        \
+        rm -rf \
+            /sbin/mkmntdirs \
+            /sbin/apk \
+            /etc/apk \
+            /lib/apk \
+            /usr/bin/ssl_client \
+            /usr/share \
+            /usr/local/share; \
+    }; \
+    apk add nghttp2-libs; \
+    apk del musl-utils libc-utils; \
+    remove_files
 
 
 
